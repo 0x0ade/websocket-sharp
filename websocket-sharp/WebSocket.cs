@@ -1172,9 +1172,9 @@ namespace WebSocketSharp
     )
     {
       Action<PayloadData, bool, bool, bool> closer = close;
-      closer.BeginInvoke (
-        payloadData, send, receive, received, ar => closer.EndInvoke (ar), null
-      );
+      System.Threading.Tasks.Task.Run(() => closer.Invoke (
+        payloadData, send, receive, received
+      ));
     }
 
     private bool closeHandshake (byte[] frameAsBytes, bool receive, bool received)
@@ -1552,7 +1552,7 @@ namespace WebSocketSharp
         e = _messageEventQueue.Dequeue ();
       }
 
-      _message.BeginInvoke (e, ar => _message.EndInvoke (ar), null);
+      System.Threading.Tasks.Task.Run(() => _message.Invoke (e));
     }
 
     private bool ping (byte[] data)
@@ -1953,25 +1953,21 @@ namespace WebSocketSharp
     private void sendAsync (Opcode opcode, Stream stream, Action<bool> completed)
     {
       Func<Opcode, Stream, bool> sender = send;
-      sender.BeginInvoke (
-        opcode,
-        stream,
-        ar => {
-          try {
-            var sent = sender.EndInvoke (ar);
-            if (completed != null)
-              completed (sent);
-          }
-          catch (Exception ex) {
-            _logger.Error (ex.ToString ());
-            error (
-              "An error has occurred during the callback for an async send.",
-              ex
-            );
-          }
-        },
-        null
-      );
+      System.Threading.Tasks.Task.Run(() =>
+      {
+        try {
+          var sent = sender.Invoke (opcode, stream);
+          if (completed != null)
+            completed (sent);
+        }
+        catch (Exception ex) {
+          _logger.Error (ex.ToString ());
+          error (
+            "An error has occurred during the callback for an async send.",
+            ex
+          );
+        }
+      });
     }
 
     private bool sendBytes (byte[] bytes)
@@ -2564,13 +2560,11 @@ namespace WebSocketSharp
       }
 
       Func<bool> acceptor = accept;
-      acceptor.BeginInvoke (
-        ar => {
-          if (acceptor.EndInvoke (ar))
-            open ();
-        },
-        null
-      );
+      System.Threading.Tasks.Task.Run(() =>
+      {
+        if (acceptor.Invoke ())
+          open ();
+      });
     }
 
     /// <summary>
@@ -3307,13 +3301,11 @@ namespace WebSocketSharp
       }
 
       Func<bool> connector = connect;
-      connector.BeginInvoke (
-        ar => {
-          if (connector.EndInvoke (ar))
-            open ();
-        },
-        null
-      );
+      System.Threading.Tasks.Task.Run(() =>
+      {
+        if (connector.Invoke ())
+          open ();
+      });
     }
 
     /// <summary>
